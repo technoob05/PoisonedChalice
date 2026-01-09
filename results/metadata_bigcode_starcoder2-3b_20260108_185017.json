@@ -1,0 +1,13 @@
+{
+  "timestamp": "20260108_185017",
+  "model_name": "bigcode/starcoder2-3b",
+  "sample_fraction": 0.05,
+  "seed": 42,
+  "max_length": 8192,
+  "attacks_executed": [
+    "loss",
+    "mkp",
+    "pac"
+  ],
+  "total_samples": 5000
+}
