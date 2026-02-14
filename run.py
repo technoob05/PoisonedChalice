@@ -16,7 +16,9 @@ from MIAttack import MIAttack
 from Loss import LossAttack
 from Pac import PACAttack, load_model_from_directory
 from MinKProbAttack import MinKProbAttack
-from datasets import load_dataset
+from MinKProbAttack import MinKProbAttack
+from datasets import load_dataset, load_from_disk
+import os
 
 # Attack Registry
 ATTACK_REGISTRY: Dict[str, Type[MIAttack]] = {
@@ -50,14 +52,37 @@ class MIAExperiment:
         """Load member and non-member datasets."""
         subsets= ['Go', 'Java', 'Python', 'Ruby', 'Rust']
         dfs = []
+        
+        # Check if dataset is a local path
+        is_local = os.path.exists(self.args.dataset)
+        if is_local:
+            print(f"Loading dataset from local path: {self.args.dataset}")
+        else:
+            print(f"Loading dataset from Hugging Face: {self.args.dataset}")
+
         for subset in subsets:
-            ds = load_dataset(self.args.dataset, subset, split="test")
+            if is_local:
+                # Load from disk: expects structure like dataset_path/subset
+                subset_path = os.path.join(self.args.dataset, subset)
+                if not os.path.exists(subset_path):
+                     raise FileNotFoundError(f"Subset {subset} not found at {subset_path}")
+                ds = load_from_disk(subset_path)
+                # If saved with save_to_disk, it might not have 'test' split if saved directly
+                # Checking structure from download_data.py: ds.save_to_disk(save_path)
+                # It saves the dataset/split directly.
+                if hasattr(ds, "keys") and "test" in ds.keys():
+                     ds = ds["test"]
+                # If it's already the dataset (Arrow), just use it
+                
+            else:
+                ds = load_dataset(self.args.dataset, subset, split="test")
+                
             dfs.append(ds.to_pandas())
+            
         # create is_member column value based on membership column (member vs non-member)
         ds = pd.concat(dfs, ignore_index=True)
         ds['is_member'] = ds['membership'].apply(lambda x: 1 if x == 'member' else 0)
-        ds = ds.sample(frac=self.args.sample_fraction, random_state=self.args.seed
-        )
+        ds = ds.sample(frac=self.args.sample_fraction, random_state=self.args.seed)
         return ds
 
     def save_results(self, df: pd.DataFrame, executed_attacks: List[str]):
